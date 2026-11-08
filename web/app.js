@@ -13,7 +13,7 @@ const paths = {
   timer:'M9 2h6 M12 2v3 M18 5l2 2 M12 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16 M12 9v5l3 1',
   chart:'M4 3v18h17 M8 16v-4 M13 16V7 M18 16V4',
   settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M9 3l-1 2-2 1-2-1-2 4 2 2v2l-2 2 2 4 2-1 2 1 1 2h6l1-2 2-1 2 1 2-4-2-2v-2l2-2-2-4-2 1-2-1-1-2z',
-  check:'M5 12l4 4L19 6', plus:'M12 5v14 M5 12h14', search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14 M15 15l6 6',
+  check:'M5 12l4 4L19 6', plus:'M12 5v14 M5 12h14',
   more:'M5 12h.01 M12 12h.01 M19 12h.01', close:'M6 6l12 12 M6 18 18 6',
   arrow:'M5 12h14 M13 6l6 6-6 6', left:'M15 5l-7 7 7 7', right:'M9 5l7 7-7 7',
   pin:'M9 3h6 M10 3v6l-4 5h12l-4-5V3 M12 14v7',
@@ -38,8 +38,8 @@ const quadrants = [
 ];
 const views = {board:'四象限', calendar:'日历计划', focus:'番茄专注', stats:'数据回顾', completed:'已完成', trash:'回收站', settings:'设置与同步'};
 const palette = {green:['#245a47','#eaf1e9'], blue:['#345f85','#e9f0f7'], purple:['#725b89','#f0ebf6'], orange:['#a7683b','#faf0e7']};
-let state = null, meta = null, view = 'board', layout = localStorage.getItem('quadrant.layout') || 'board';
-let query = '', sort = 'default', onlyToday = false, offset = 0, connected = true;
+let state = null, meta = null, view = 'board';
+let offset = 0, connected = true;
 let selectedDay = localDay(), month = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let editorTask = null, editorId = '', pickedFiles = [], focusMode = 'focus';
 let customHours=0, customMinutes=25;
@@ -127,7 +127,7 @@ function renderShell() {
   renderMain();
 }
 function renderNav() {
-  $('#main-nav').innerHTML=navButton('board','四象限','grid',openTasks().length)+navButton('calendar','日历计划','calendar')+'<div class="nav-label">专注与回顾</div>'+navButton('focus','番茄专注','timer')+navButton('stats','数据回顾','chart')+navButton('completed','已完成','check')+'<div class="nav-label">你的空间</div>'+navButton('settings','设置与同步','settings')+navButton('trash','回收站','trash');
+  $('#main-nav').innerHTML=navButton('board','四象限','grid')+navButton('calendar','日历计划','calendar')+'<div class="nav-label">专注与回顾</div>'+navButton('focus','番茄专注','timer')+navButton('stats','数据回顾','chart')+navButton('completed','已完成','check')+'<div class="nav-label">你的空间</div>'+navButton('settings','设置与同步','settings')+navButton('trash','回收站','trash');
 }
 function summary() {
   const tasks=openTasks(), stats=dayStats(localDay());
@@ -137,19 +137,12 @@ function summary() {
 function pageHeading(title, sub, eyebrow='YOUR PERSONAL WORKSPACE') {
   return `<div class="greeting"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p class="subtitle">${sub}</p></div><div class="datebox"><strong>${new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric'})}</strong>${new Date().toLocaleDateString('zh-CN',{weekday:'long',year:'numeric'})}</div></div>`;
 }
-function filteredTasks(tasks) {
-  const q=query.toLowerCase();
-  tasks=tasks.filter(t=>!q || [t.title,t.notes].join(' ').toLowerCase().includes(q));
+function sortedTasks(tasks) {
   return tasks.sort((a,b)=>{
     if(a.done!==b.done) return a.done?1:-1;
     if(a.pinned!==b.pinned) return a.pinned?-1:1;
-    if(sort==='due') return (a.due || '9999').localeCompare(b.due || '9999') || b.created_at-a.created_at;
-    if(sort==='created') return b.created_at-a.created_at;
     return qid(a)-qid(b) || (a.due || '9999').localeCompare(b.due || '9999') || b.created_at-a.created_at;
   });
-}
-function toolbar(showLayout = false) {
-  return `<div class="toolbar"><div class="tools-left">${showLayout?`<div class="tabs" role="group" aria-label="任务视图"><button data-action="layout" data-value="board" aria-pressed="${layout==='board'}" class="${layout==='board'?'active':''}">${icon('grid')}四象限</button><button data-action="layout" data-value="list" aria-pressed="${layout==='list'}" class="${layout==='list'?'active':''}">${icon('list')}列表</button></div><select id="task-filter" aria-label="任务范围"><option value="" ${!onlyToday?'selected':''}>全部待办</option><option value="today" ${onlyToday?'selected':''}>今日待办</option></select>`:''}</div><div class="tools-right"><div class="search">${icon('search')}<input id="search-input" value="${esc(query)}" placeholder="搜索任务或备注" aria-label="搜索任务"></div><select id="sort-filter" aria-label="排序方式"><option value="default" ${sort==='default'?'selected':''}>优先级</option><option value="due" ${sort==='due'?'selected':''}>截止日期</option><option value="created" ${sort==='created'?'selected':''}>创建时间</option></select><button class="btn primary" data-action="new">${icon('plus')}新建任务</button></div></div>`;
 }
 function taskCard(task) {
   const files=state.files.filter(f=>f.task_id===task.id), q=quadrants[qid(task)-1];
@@ -160,12 +153,12 @@ function empty(message='这里还没有任务', detail='给重要的事一个位
   return `<div class="empty">${icon('leaf')}<strong>${message}</strong>${detail}${add?'<br><button class="btn small" data-action="new">新建任务</button>':''}</div>`;
 }
 function renderBoard() {
-  const tasks=filteredTasks(openTasks().filter(t=>!onlyToday||t.due===localDay()));
-  const content=layout==='board'?`<div class="board">${quadrants.map(q=>{
+  const tasks=sortedTasks(openTasks());
+  const content=`<div class="board">${quadrants.map(q=>{
     const items=tasks.filter(t=>qid(t)===q.id);
-    return `<section class="quadrant q${q.id}" data-quadrant="${q.id}"><header class="quadrant-header"><div class="q-title"><span class="q-num">0${q.id}</span><div><h2>${q.name}</h2><p>${q.hint}</p></div></div><span class="q-count" aria-label="${items.length} 项待办">${items.length}</span></header><div class="task-list">${items.length?items.map(taskCard).join(''):empty('留给'+q.short+'的事',onlyToday?'今天暂无安排':query?'暂无匹配任务':'点击上方新建任务',false)}</div></section>`;
-  }).join('')}</div>`:`<div class="task-table"><div class="list-heading"><span>${onlyToday?'今日待办':'全部待办'}</span><span>${tasks.length} 项待办</span></div>${tasks.length?tasks.map(taskCard).join(''):empty(query?'没有匹配的任务':onlyToday?'今日暂无待办':'暂无待办',query?'换个关键词试试。':'点击上方新建任务。',false)}</div>`;
-  return pageHeading('四象限',esc(state.settings.subtitle)) + summary()+toolbar(true)+`<div class="filter-line"><span>${onlyToday?'今日待办':'全部待办'}<span class="filter-divider">/</span>${tasks.length} 项待办</span><span class="desktop-hint">以重要性与紧急性，安排你的下一步</span></div><div id="task-results">${content}</div><div class="board-info">${icon('grid')}<span class="desktop-hint">可拖动任务切换象限 · </span>点击任务，编辑详情</div>${state.tasks.length===0?'<div class="board-info"><button class="danger-link" style="color:var(--accent)" data-action="demo">载入示例</button></div>':''}${footer()}`;
+    return `<section class="quadrant q${q.id}" data-quadrant="${q.id}" aria-labelledby="quadrant-title-${q.id}"><header class="quadrant-header"><div class="q-title"><h2 id="quadrant-title-${q.id}">${q.name}</h2></div></header><div class="task-list" tabindex="0" role="region" aria-label="${q.name}任务">${items.length?items.map(taskCard).join(''):'<p class="quadrant-empty">暂无任务</p>'}</div></section>`;
+  }).join('')}</div>`;
+  return `<div class="toolbar board-heading"><h1>四象限</h1><button class="btn primary" data-action="new">${icon('plus')}新建任务</button></div>${content}`;
 }
 function footer() {
   return `<footer class="footer"><span>${icon('shield')} ${window.PhoneStore?'保存在手机 · 离线可用':'保存在电脑 · 页面自动刷新'}</span><span>把时间留给重要的事。</span></footer>`;
@@ -174,14 +167,14 @@ function renderTaskPage() {
   let tasks, title, sub;
   if(view==='completed') { tasks=activeTasks().filter(t=>t.done); title='已完成'; sub='每一步，都算数。'; }
   if(view==='trash') { tasks=state.tasks.filter(t=>t.deleted_at); title='回收站'; sub='恢复任务，或永久删除。'; }
-  tasks=filteredTasks(tasks);
-  return pageHeading(title,sub)+summary()+toolbar()+`<div class="task-table"><div class="list-heading"><span>${views[view]}</span><span>${tasks.length} 项</span></div>${tasks.length?tasks.map(taskCard).join(''):empty(query?'没有匹配的任务':view==='completed'?'完成之后，在这里回顾':view==='trash'?'回收站是空的':'现在没有待办',view==='completed'?'去完成一件小事吧。':view==='trash'?'删除的任务仍然可以找回来。':'给今天留一点空间。',!['completed','trash'].includes(view))}</div>${footer()}`;
+  tasks=sortedTasks(tasks);
+  return pageHeading(title,sub)+`<div class="task-table"><div class="list-heading"><span>${views[view]}</span><span>${tasks.length} 项</span></div>${tasks.length?tasks.map(taskCard).join(''):empty(view==='completed'?'完成之后，在这里回顾':'回收站是空的',view==='completed'?'去完成一件小事吧。':'删除的任务仍然可以找回来。',false)}</div>${footer()}`;
 }
 function renderCalendar() {
   const first=new Date(month), start=new Date(first); start.setDate(1-(first.getDay()+6)%7);
   const days=Array.from({length:42},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d;});
   const tasks=activeTasks(), agenda=tasks.filter(t=>t.due===selectedDay).sort((a,b)=>Number(a.done)-Number(b.done)||qid(a)-qid(b));
-  return pageHeading('日历计划','选一天，查看安排。')+summary()+`<div class="two-columns"><section class="panel"><div class="calendar-nav"><h2>${month.getFullYear()} 年 ${month.getMonth()+1} 月</h2><div class="row"><button class="icon-btn" data-action="month" data-value="-1" aria-label="上个月">${icon('left')}</button><button class="btn small" data-action="calendar-today">今天</button><button class="icon-btn" data-action="month" data-value="1" aria-label="下个月">${icon('right')}</button></div></div><div class="calendar-week">${['一','二','三','四','五','六','日'].map(d=>`<div>${d}</div>`).join('')}</div><div class="calendar-days">${days.map(d=>{const day=localDay(d),items=tasks.filter(t=>t.due===day&&!t.done);return `<button class="calendar-day ${d.getMonth()!==month.getMonth()?'other':''} ${day===selectedDay?'selected':''} ${day===localDay()?'today':''}" data-action="day" data-value="${day}" aria-label="${day}，${items.length}项待办"><span>${d.getDate()}</span>${items.length?`<div class="calendar-dots">${items.slice(0,5).map(()=>'<i></i>').join('')}</div><small>${items.length}</small>`:''}</button>`;}).join('')}</div></section><section class="panel agenda"><div class="section-title"><div><h2>${dateText(selectedDay)}的安排</h2><p class="subtitle">${esc(selectedDay)} · ${agenda.length} 项任务</p></div><button class="icon-btn" data-action="new" data-date="${selectedDay}" aria-label="添加当日任务">${icon('plus')}</button></div>${agenda.length?agenda.map(taskCard).join(''):empty('暂无安排','点击右上角 + 添加。',false)}</section></div>${footer()}`;
+  return pageHeading('日历计划','选一天，查看安排。')+`<div class="two-columns"><section class="panel"><div class="calendar-nav"><h2>${month.getFullYear()} 年 ${month.getMonth()+1} 月</h2><div class="row"><button class="icon-btn" data-action="month" data-value="-1" aria-label="上个月">${icon('left')}</button><button class="btn small" data-action="calendar-today">今天</button><button class="icon-btn" data-action="month" data-value="1" aria-label="下个月">${icon('right')}</button></div></div><div class="calendar-week">${['一','二','三','四','五','六','日'].map(d=>`<div>${d}</div>`).join('')}</div><div class="calendar-days">${days.map(d=>{const day=localDay(d),items=tasks.filter(t=>t.due===day&&!t.done);return `<button class="calendar-day ${d.getMonth()!==month.getMonth()?'other':''} ${day===selectedDay?'selected':''} ${day===localDay()?'today':''}" data-action="day" data-value="${day}" aria-label="${day}，${items.length}项待办"><span>${d.getDate()}</span>${items.length?`<div class="calendar-dots">${items.slice(0,5).map(()=>'<i></i>').join('')}</div><small>${items.length}</small>`:''}</button>`;}).join('')}</div></section><section class="panel agenda"><div class="section-title"><div><h2>${dateText(selectedDay)}的安排</h2><p class="subtitle">${esc(selectedDay)} · ${agenda.length} 项任务</p></div><button class="icon-btn" data-action="new" data-date="${selectedDay}" aria-label="添加当日任务">${icon('plus')}</button></div>${agenda.length?agenda.map(taskCard).join(''):empty('暂无安排','点击右上角 + 添加。',false)}</section></div>${footer()}`;
 }
 function remaining() {
   const t=state.timer;
@@ -200,7 +193,7 @@ function tickClock() {
 function renderFocus() {
   const t=state.timer, busy=t.status!=='idle', mode=busy?t.mode:focusMode, stats=dayStats(localDay());
   const logs=[...state.focus_logs].sort((a,b)=>b.finished_at-a.finished_at).slice(0,30);
-  return pageHeading('番茄专注','此刻，只做一件事。')+summary()+`
+  return pageHeading('番茄专注','此刻，只做一件事。')+`
     <div class="focus-layout"><section class="panel focus-panel">
       <div class="focus-controls"><div class="tabs focus-mode">
         <button data-action="focus-mode" data-value="focus" class="${mode==='focus'?'active':''}" ${busy?'disabled':''}>专注 ${state.settings.focus_minutes} 分钟</button>
@@ -248,21 +241,24 @@ function renderSettings() {
 
 function renderMain() {
   if(!state) return;
+  const scrolls = new Map($$('.quadrant').map(el=>[el.dataset.quadrant,$('.task-list',el).scrollTop]));
   applyBrand(); renderNav(); $('#crumb-view').textContent=views[view];
+  $('.main').classList.toggle('board-page',view==='board');
   const renderers={board:renderBoard,calendar:renderCalendar,focus:renderFocus,stats:renderStats,settings:renderSettings};
   $('#main-content').innerHTML=(renderers[view] || renderTaskPage)();
+  $$('.quadrant').forEach(el=>{$('.task-list',el).scrollTop=scrolls.get(el.dataset.quadrant)||0;});
   window.TimerAudio?.updateUI();
   updateConnection(); tickClock();
 }
 function navigate(id) {
   if(!views[id]) return;
-  view=id; query=''; onlyToday=false; sort='default';
+  view=id;
   $('#sidebar')?.classList.remove('open'); $('.mobile-shade')?.classList.remove('show');
   renderMain(); window.scrollTo({top:0});
 }
 function openEditor(id='', quadrant=1, due='') {
   editorTask=id?state.tasks.find(t=>t.id===id):null; editorId=id; pickedFiles=[];
-  const t=editorTask || {title:'',notes:'',due:due || (view==='board'&&onlyToday?localDay():''),pinned:false,done:false};
+  const t=editorTask || {title:'',notes:'',due,pinned:false,done:false};
   const q=editorTask?qid(t):Number(quadrant);
   const dialog=$('#task-dialog');
   dialog.innerHTML=`<form id="task-form"><div class="dialog-head"><h2 id="editor-title">${id?'编辑任务':'新建任务'}</h2><button type="button" class="icon-btn" data-action="editor-close" aria-label="关闭">${icon('close')}</button></div><div class="dialog-content"><label class="field"><span class="hidden">任务标题</span><textarea name="title" class="title-input" rows="2" maxlength="500" required placeholder="你想完成什么？">${esc(t.title)}</textarea></label><label class="field"><span>备注</span><textarea name="notes" rows="3" maxlength="20000" placeholder="记下想法、步骤或需要注意的细节…">${esc(t.notes)}</textarea></label><span class="small muted">放进一个象限</span><div class="quadrant-options">${quadrants.map(v=>`<label class="quadrant-option q${v.id}"><input type="radio" name="quadrant" value="${v.id}" ${v.id===q?'checked':''}>${v.name}</label>`).join('')}</div><div class="form-grid"><label class="field"><span>日期</span><input name="due" type="date" value="${esc(t.due)}"></label></div><div class="dialog-check"><label><input name="pinned" type="checkbox" ${t.pinned?'checked':''}>${icon('pin')}置顶</label><label><input name="done" type="checkbox" ${t.done?'checked':''}>已完成</label></div><div class="attachments"><span class="small muted">附件</span><div id="editor-files"></div><label class="upload-label">${icon('plus')}添加附件<input id="task-files" type="file" multiple class="hidden"></label><div class="file-picked" id="picked-files"></div><p class="small muted" style="margin-top:8px">每项最多 12 个附件，每个 20 MB。保存时上传。</p></div><p class="error" id="task-error" role="alert"></p></div><div class="dialog-bottom">${id?`<button type="button" class="danger-link" data-action="${t.deleted_at?'restore':'delete'}" data-id="${esc(id)}">${t.deleted_at?'恢复任务':'移至回收站'}</button>${t.deleted_at?`<button type="button" class="danger-link" data-action="purge" data-id="${esc(id)}">永久删除</button>`:''}`:'<span class="small muted">保存到本机</span>'}<div class="row"><button type="button" class="btn" data-action="editor-close">取消</button><button type="submit" class="btn primary">保存</button></div></div></form>`;
@@ -303,22 +299,6 @@ async function copyText(text) {
   try {await navigator.clipboard.writeText(text);toast('地址已复制');}
   catch {const area=document.createElement('textarea');area.value=text;document.body.append(area);area.select();const ok=document.execCommand('copy');area.remove();toast(ok?'地址已复制':'请长按或选中地址复制');}
 }
-async function loadDemo() {
-  await confirmAction('载入示例任务','将添加 6 条可以编辑或删除的示例任务。',async()=>{
-    const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
-    const sample=[
-      ['完成本周汇报','整理进展与下一步计划。',true,true,localDay()],
-      ['回复今天的邮件','确认结论与待办。',true,true,localDay()],
-      ['阅读 30 分钟','读书、笔记，持续积累。',true,false,localDay(tomorrow)],
-      ['运动半小时','为精力充电。',true,false,''],
-      ['确认快递时间','及时收件。',false,true,localDay()],
-      ['挑一部电影','留一点放松时间。',false,false,''],
-    ];
-    for(const [title,notes,important,urgent,due] of sample) await api('/api/tasks',{method:'POST',body:{title,notes,important,urgent,due}});
-    await refresh(true);toast('示例已载入，可以随意修改');
-  },'载入示例');
-}
-
 document.addEventListener('click',async event=>{
   const nav=event.target.closest('[data-nav]');
   if(nav){navigate(nav.dataset.nav);return;}
@@ -335,7 +315,6 @@ document.addEventListener('click',async event=>{
     if(action==='purge') {const task=editorId===id&&$('#task-dialog').open?editorTask:state.tasks.find(t=>t.id===id);await confirmAction('永久删除这条任务？','任务与全部附件将无法恢复。下次同步时，也会从另一端删除。',async()=>{await api(`/api/tasks/${encodeURIComponent(id)}/purge`,{method:'POST',body:{revision:task.revision}});$('#task-dialog').close();await refresh(true);toast('任务及附件已永久删除');},'永久删除');}
     if(action==='stop-alarm') await window.TimerAudio?.stop();
     if(action==='restore') {await taskChange(id,{deleted_at:null});$('#task-dialog').close();toast('任务已恢复');}
-    if(action==='layout') {layout=value;localStorage.setItem('quadrant.layout',value);renderMain();}
     if(action==='day') {selectedDay=value;renderMain();}
     if(action==='month') {month=new Date(month.getFullYear(),month.getMonth()+Number(value),1);renderMain();}
     if(action==='calendar-today') {selectedDay=localDay();month=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderMain();}
@@ -347,7 +326,6 @@ document.addEventListener('click',async event=>{
     if(action==='import') $('#import-file').click();
     if(action==='file-delete') await confirmAction('删除附件？','附件将从主电脑移除。',async()=>{await api(`/api/files/${encodeURIComponent(id)}`,{method:'DELETE'});await refresh();renderEditorFiles();toast('附件已删除');},'删除附件');
     if(action==='logout') {await api('/api/logout',{method:'POST',body:{}});clearInterval(pollTimer);state=null;meta={...meta,initialized:true,authenticated:false};renderAuth();}
-    if(action==='demo') await loadDemo();
     if(action==='retry') await boot();
   } catch(e) {toast(e.message);if(e.status===409) await refresh(true);}
 });
@@ -358,18 +336,8 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('input',e=>{
   if(['custom-hours','custom-minutes'].includes(e.target.id)){customHours=Number($('#custom-hours').value);customMinutes=Number($('#custom-minutes').value);focusMode='custom';$('.custom-duration')?.classList.add('active');$$('.focus-mode button').forEach(b=>b.classList.remove('active'));localStorage.setItem('quadrant.custom-time',JSON.stringify({hours:customHours,minutes:customMinutes}));tickClock();}
 
-  if(e.target.id==='search-input') {
-    const cursor=e.target.selectionStart;query=e.target.value;renderMain();
-    const replacement=$('#search-input');replacement.focus();replacement.setSelectionRange(cursor,cursor);
-  }
 });
 document.addEventListener('change',async e=>{
-  if(e.target.id==='task-filter') {
-    const value=e.target.value;
-    onlyToday=view==='board'&&value==='today';
-    renderMain();
-  }
-  if(e.target.id==='sort-filter') {sort=e.target.value;renderMain();}
   if(e.target.id==='task-files') {
     const files=[...e.target.files];
     if(files.some(f=>f.size>20*1024*1024)) {toast('每个附件不能超过 20 MB');e.target.value='';return;}

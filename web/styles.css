@@ -39,3 +39,38 @@ dialog{border:1px solid #e1e6da;box-shadow:0 25px 100px #1c332833;border-radius:
   .auth-art{min-height:210px}.auth-art h1{font-size:30px}.auth-art p,.auth-foot{font-size:14px}.auth-form p{font-size:15px}.auth-form h2{font-size:26px}.auth-form-area{padding:28px 22px 40px}#toast{font-size:15px;line-height:1.7;max-width:calc(100% - 32px)}
 }
 @media(max-width:360px){.main{padding-left:12px;padding-right:12px}.mobile-top{gap:4px}.mobile-top img{display:none}.mobile-top .brand-name{max-width:98px}.top-right{gap:6px}.sync-status{font-size:14px}.tabs button{padding:8px}.toolbar select{padding:10px 8px;font-size:14px}.custom-duration button{flex-basis:100%;min-height:30px}.quadrant-option{font-size:14px}.clock{width:230px;height:230px}.summary-card{padding:14px}}
+
+/* The task board stays a two-by-two matrix, including narrow phone screens. */
+.board-page{height:100dvh;min-height:400px;display:flex;flex-direction:column;padding-bottom:20px}
+.board-page .topline{flex-shrink:0;margin-bottom:20px}
+.board-page .top-right .date-small,.board-page .sync-status,.board-page .avatar{display:none}
+.board-page #main-content{display:flex;flex-direction:column;flex:1;min-height:0}
+.board-heading{flex-shrink:0;flex-wrap:nowrap;margin:0 0 16px;gap:12px}
+.board-heading h1{font-size:26px;letter-spacing:0}
+.board-page .board{flex:1;min-height:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:16px}
+.board .quadrant{display:flex;flex-direction:column;min-height:0;min-width:0}
+.board .quadrant-header{flex-shrink:0;padding:14px 16px;align-items:center}
+.board .q-title h2{font-size:14px;letter-spacing:0;line-height:1.5}
+.board .task-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.board .task-list:focus-visible{outline:2px solid var(--q);outline-offset:-3px}
+.board .task-meta:empty{display:none}
+.quadrant-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:14px}
+@media(max-width:780px){
+  .board-page{padding:12px 12px max(12px,env(safe-area-inset-bottom))}
+  .board-page .topline{margin-bottom:12px;padding-bottom:8px;gap:8px}
+  .board-heading{margin-bottom:12px}
+  .board-heading h1{font-size:24px}
+  .board-page .board{gap:8px}
+  .board .quadrant{border-radius:10px}
+  .board .quadrant-header{padding:10px 8px}
+  .board .q-title{gap:0;min-width:0}
+  .board .task-list{padding:0 8px 6px}
+  .board .task-card{gap:7px;padding:12px 0}
+  .board .task-body{min-height:44px}
+  .board .check-btn{width:20px;height:20px;margin-top:4px;border-radius:6px}
+  .board .check-btn:before{inset:-12px}
+  .board .check-btn .icon{width:14px;height:14px}
+  .board .task-notes{font-size:14px}
+  .board .task-meta{gap:4px;margin-top:6px}
+  .board .task-meta .icon{width:14px;height:14px}
+}
